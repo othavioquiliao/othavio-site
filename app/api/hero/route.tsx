@@ -1,72 +1,110 @@
-// Profile README hero — animated SVG banner. A centered "OTHAVIO" wordmark on a
-// One Dark card whose bottom edge is a flowing wave that dissolves into
-// transparency (the page shows through), with a coral line riding the wave. The
-// wave sits just under the words as a transition. Geist Mono is subset-embedded.
-// Consumed by othavi0/README (img width=100%).
+// Profile README hero — voxel wordmark. "OTHAVIO" built from extruded One Dark
+// green cubes (#98c379 family) on a transparent background, with a cast shadow,
+// loose cubes drifting at the edges and a sheen sweeping the letter faces. All
+// motion is looping SMIL and frame 0 is the complete wordmark: GitHub renders
+// README SVGs via <img>, where one-shot CSS entrance animations freeze on their
+// first frame — the previous wordmark shipped invisible because it rose from
+// opacity 0. Consumed by othavi0/README (img width=100%).
 
 export const runtime = "edge"
 
 const W = 1200
-const H = 184
-const BG = "#21252b"
-const INK = "#d7dae0"
-const PERIOD = 380
-const BASEY = 168
-const AMP = 12
+const H = 200
+const P = 20 // cell pitch
+const D = 17 // cube extrusion depth
+const S = P - 2 // cube face size
+const WORD = "OTHAVIO"
+const SHADES = ["#98c379", "#8cb96c", "#a5ce87", "#98c379", "#7fae63", "#98c379"]
 
-async function geistMonoTTF(weight: number, text: string): Promise<ArrayBuffer> {
-  const url = `https://fonts.googleapis.com/css2?family=Geist+Mono:wght@${weight}&text=${encodeURIComponent(text)}`
-  const css = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)" },
-  }).then((r) => r.text())
-  const src = css.match(/src:\s*url\((https:\/\/[^)]+)\)/)?.[1]
-  if (!src) throw new Error("Geist Mono not found")
-  return fetch(src).then((r) => r.arrayBuffer())
+const GLYPHS: Record<string, string[]> = {
+  O: [".####.", "######", "##..##", "##..##", "##..##", "##..##", "######", ".####."],
+  T: ["######", "######", "..##..", "..##..", "..##..", "..##..", "..##..", "..##.."],
+  H: ["##..##", "##..##", "##..##", "######", "######", "##..##", "##..##", "##..##"],
+  A: [".####.", "######", "##..##", "##..##", "######", "######", "##..##", "##..##"],
+  V: ["##..##", "##..##", "##..##", "##..##", ".####.", ".####.", "..##..", "..##.."],
+  I: ["######", "######", "..##..", "..##..", "..##..", "..##..", "######", "######"],
 }
 
-function toBase64(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf)
-  let bin = ""
-  const chunk = 0x8000
-  for (let i = 0; i < bytes.length; i += chunk) bin += String.fromCharCode(...bytes.subarray(i, i + chunk))
-  return btoa(bin)
+const COLS = WORD.length * 7 - 1 // 6 glyph columns + 1 gap per letter
+const X0 = Math.floor((W - COLS * P) / 2)
+const Y0 = Math.floor((H - 8 * P) / 2)
+
+function lighten(hex: string, f: number): string {
+  const adj = (c: number) =>
+    f >= 0 ? Math.min(255, Math.round(c + (255 - c) * f)) : Math.max(0, Math.round(c * (1 + f)))
+  return `#${[1, 3, 5]
+    .map((i) => adj(parseInt(hex.slice(i, i + 2), 16)).toString(16).padStart(2, "0"))
+    .join("")}`
 }
 
-const X0 = -PERIOD
-const X1 = W + PERIOD * 2
-
-function waveEdge(): string {
-  let d = ""
-  for (let x = X1; x >= X0; x -= 12) {
-    const y = BASEY - AMP * Math.sin((x / PERIOD) * Math.PI * 2)
-    d += `${d ? " L" : "M"} ${x} ${y.toFixed(1)}`
+function cells(): { x: number; y: number; shade: string }[] {
+  const out: { x: number; y: number; shade: string }[] = []
+  let col0 = 0
+  for (const ch of WORD) {
+    GLYPHS[ch].forEach((row, r) => {
+      for (let c = 0; c < row.length; c++) {
+        if (row[c] !== "#") continue
+        const gc = col0 + c
+        out.push({ x: X0 + gc * P, y: Y0 + r * P, shade: SHADES[(gc * 31 + r * 17) % SHADES.length] })
+      }
+    })
+    col0 += 7
   }
-  return d
+  // painter's order: bottom rows first, left to right, so upper and right
+  // neighbours overlay extrusions correctly
+  return out.sort((a, b) => b.y - a.y || a.x - b.x)
 }
 
-export async function GET() {
-  const font = toBase64(await geistMonoTTF(800, "OTHAVIO"))
-  const edge = waveEdge()
-  const textLen = 700
-  const tx = (W - textLen) / 2
-  // card: straight top, wavy bottom (then transparent below)
-  const card = `M ${X0} 0 L ${X1} 0 L ${X1} ${BASEY} ${edge.replace(/^M/, "L")} Z`
+function cube(x: number, y: number, s: number, d: number, shade: string): string {
+  const top = lighten(shade, 0.35)
+  const side = lighten(shade, -0.4)
+  return (
+    `<polygon points="${x},${y} ${x + s},${y} ${x + s + d},${y - d} ${x + d},${y - d}" fill="${top}"/>` +
+    `<polygon points="${x + s},${y} ${x + s + d},${y - d} ${x + s + d},${y + s - d} ${x + s},${y + s}" fill="${side}"/>` +
+    `<rect x="${x}" y="${y}" width="${s}" height="${s}" fill="${shade}"/>`
+  )
+}
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" fill="none" role="img" aria-label="OTHAVIO">
-<style>
-@font-face{font-family:'GM';font-weight:800;src:url(data:font/ttf;base64,${font}) format('truetype')}
-.wm{font-family:'GM',ui-monospace,monospace;font-weight:800;fill:${INK}}
-.l1{animation:rise 1s cubic-bezier(.16,1,.3,1) both}
-.wave{animation:drift 9s linear infinite}
-@keyframes rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:translateY(0)}}
-@keyframes drift{from{transform:translateX(0)}to{transform:translateX(-${PERIOD}px)}}
-@media(prefers-reduced-motion:reduce){.l1{animation:none;opacity:1}.wave{animation:none}}
-</style>
-<g class="wave">
-<path d="${card}" fill="${BG}"/>
-</g>
-<text class="wm l1" x="${tx}" y="148" font-size="178" textLength="${textLen}" lengthAdjust="spacingAndGlyphs">OTHAVIO</text>
-</svg>`
+function floater(x: number, y: number, s: number, d: number, shade: string, dy: number, dur: number, begin: number): string {
+  return (
+    `<g transform="translate(0 0)">${cube(x, y, s, d, shade)}` +
+    `<animateTransform attributeName="transform" type="translate" values="0 0; 0 ${dy}; 0 0" ` +
+    `dur="${dur}s" begin="${begin}s" repeatCount="indefinite" calcMode="spline" ` +
+    `keySplines=".45 0 .55 1;.45 0 .55 1"/></g>`
+  )
+}
+
+export function GET() {
+  const shadow: string[] = []
+  const wall: string[] = []
+  const clip: string[] = []
+  for (const { x, y, shade } of cells()) {
+    shadow.push(`<rect x="${x - 9}" y="${y + 11}" width="${S}" height="${S}"/>`)
+    wall.push(cube(x, y, S, D, shade))
+    clip.push(`<rect x="${x}" y="${y}" width="${S}" height="${S}"/>`)
+  }
+
+  const floaters =
+    floater(64, 66, 16, 9, SHADES[0], -9, 4.6, 0) +
+    floater(112, 130, 11, 7, SHADES[4], -7, 5.8, 1.2) +
+    floater(1092, 58, 13, 8, SHADES[2], -8, 5.2, 0.6) +
+    floater(1136, 118, 18, 10, SHADES[0], -10, 6.4, 2) +
+    floater(600, 26, 9, 6, SHADES[1], -6, 5, 1.6)
+
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="OTHAVIO">` +
+    `<defs><clipPath id="faces">${clip.join("")}</clipPath>` +
+    `<filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5"/></filter>` +
+    `<linearGradient id="sheen" x1="0" y1="0" x2="1" y2="0">` +
+    `<stop offset="0" stop-color="#fff" stop-opacity="0"/>` +
+    `<stop offset=".5" stop-color="#fff" stop-opacity=".16"/>` +
+    `<stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>` +
+    `<g filter="url(#soft)" fill="#000" opacity=".25">${shadow.join("")}</g>` +
+    wall.join("") +
+    floaters +
+    `<g clip-path="url(#faces)"><rect x="-480" y="-40" width="320" height="${H + 80}" fill="url(#sheen)" transform="skewX(-18)">` +
+    `<animateTransform attributeName="transform" type="translate" additive="sum" from="0 0" to="1980 0" dur="6s" begin="1s" repeatCount="indefinite"/>` +
+    `</rect></g></svg>`
 
   return new Response(svg, {
     headers: {
