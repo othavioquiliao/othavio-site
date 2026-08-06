@@ -14,7 +14,8 @@ const P = 20 // cell pitch
 const D = 17 // cube extrusion depth
 const S = P - 2 // cube face size
 const WORD = "OTHAVIO"
-const SHADES = ["#98c379", "#8cb96c", "#a5ce87", "#98c379", "#7fae63", "#98c379"]
+// steel blue: base #5c7e9e com variações -10%/+12%/-18% (decisão 2026-08-07, "aço")
+const SHADES = ["#5c7e9e", "#52718e", "#6f8da9", "#5c7e9e", "#4b6781", "#5c7e9e"]
 
 const GLYPHS: Record<string, string[]> = {
   O: [".####.", "######", "##..##", "##..##", "##..##", "##..##", "######", ".####."],
@@ -97,7 +98,7 @@ export function GET() {
     `<filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5"/></filter>` +
     `<linearGradient id="sheen" x1="0" y1="0" x2="1" y2="0">` +
     `<stop offset="0" stop-color="#fff" stop-opacity="0"/>` +
-    `<stop offset=".5" stop-color="#fff" stop-opacity=".16"/>` +
+    `<stop offset=".5" stop-color="#fff" stop-opacity=".14"/>` +
     `<stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>` +
     `<g filter="url(#soft)" fill="#000" opacity=".25">${shadow.join("")}</g>` +
     wall.join("") +
